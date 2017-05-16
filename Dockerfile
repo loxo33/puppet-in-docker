@@ -1,25 +1,43 @@
 FROM alpine:3.4
 MAINTAINER loxo33 "hollar@samual.org"
 
+ARG BUILD_DATE
+ARG VCS_REF
+ARG PUPPET_VERSION
+
 ENV PUPPET_VERSION="4.10.1" FACTER_VERSION="2.4.6" MCO_VERSION="2.10.4"
 
-RUN apk add --update \
-      ca-certificates \
-      pciutils \
-      ruby \
-      ruby-irb \
-      ruby-rdoc \
-      && \
-    echo http://dl-4.alpinelinux.org/alpine/edge/community/ >> /etc/apk/repositories && \
-    apk add --update shadow && \
-    rm -rf /var/cache/apk/* && \
-    gem install puppet:"$PUPPET_VERSION" facter:"$FACTER_VERSION" mcollective-client:"$MCO_VERSION" && \
-    /usr/bin/puppet module install puppetlabs-apk
+# Puppet absolutely needs the shadow utils, such as useradd.
+RUN echo http://dl-4.alpinelinux.org/alpine/edge/testing/ >> /etc/apk/repositories
 
-# Workaround for https://tickets.puppetlabs.com/browse/FACT-1351
-RUN rm /usr/lib/ruby/gems/2.3.0/gems/facter-"$FACTER_VERSION"/lib/facter/blockdevices.rb
+# Get access to ruby < 2.2 to avoid syck errors on puppet 3.x
+RUN echo http://dl-4.alpinelinux.org/alpine/v3.1/main/ >> /etc/apk/repositories
+
+RUN apk upgrade --update --available && \
+    apk add --no-cache -X http://dl-4.alpinelinux.org/alpine/edge/main/ \
+      'openssl>=1.0.2j-r0' \
+      && \
+    apk add --no-cache -X http://dl-4.alpinelinux.org/alpine/edge/community/ \
+      shadow \
+      && \
+    apk add \
+      ca-certificates \
+      dmidecode \
+      pciutils \
+      'ruby<2.2' \
+      util-linux \
+    && rm -f /var/cache/apk/* && \
+    gem install -N \
+      facter:'>= 2.4.6' \
+      puppet:"= ${PUPPET_VERSION}" \
+      mcollective-client:"$MCO_VERSION" \
+    && rm -fr /root/.gem
+
+RUN rm -fr /var/spool/cron/crontabs/* && \
+    :
+
+ENV container docker
+VOLUME ["/sys/fs/cgroup", "/run", "/var/lib/puppet", "/lib64"]
 
 ENTRYPOINT ["/usr/bin/puppet"]
-CMD ["agent", "--verbose", "--one-time", "--no-daemonize", "--summarize" ]
-
-COPY Dockerfile /
+CMD ["help"]
