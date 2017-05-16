@@ -24,7 +24,7 @@ RUN apk upgrade --update --available && \
       util-linux \
     && rm -f /var/cache/apk/* && \
     gem install -N \
-      facter:">= ${FACTER_VERSION}" \
+      facter:"= ${FACTER_VERSION}" \
       puppet:"= ${PUPPET_VERSION}" \
     && rm -fr /root/.gem
 
